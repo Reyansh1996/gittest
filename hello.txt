@@ -1,1 +1,136 @@
-Hey there how are you. Just a test file to make the changes.
+import streamlit as st        
+import json
+import os
+from datetime import datetime
+
+
+## Setting the page configuration 
+st.set_page_config(
+   page_title="Simple todo list" ,
+   page_icon="@" ,
+   layout="centered"
+
+)
+
+## Initialize the session state
+
+if 'todos' not in st.session_state:
+    st.session_state.todos=[]
+
+if 'edit_index' not in st.session_state:
+    st.session_state.edit_index=None
+
+
+### File operations
+
+
+def save_todos():
+    """Save todos to a json file"""
+    with open('todos.json' , 'w') as f:
+        json.dump(st.session_state.todos , f)
+
+def load_todos():
+    """Load todos from json file if exists"""
+    if os.path.exists('todos.json'):
+        try:
+            with open('todos.json' , 'r') as f:
+                st.session_state.todos=json.load(f)
+
+        except:
+            st.session_state.todos= [] 
+
+### Load existing todos 
+load_todos()
+
+### Setting header 
+st.title("Simple MyTasks Diary")
+st.write("Manage your tasks efficiently")
+
+### Adding a tasks form 
+with st.form("Add a daily task"):
+    col1, col2 = st.columns([3,1])
+
+    with col1:
+        new_todo= st.text_input("Add a new task:", placeholder="Enetr your task here...")
+    with col2:
+        priority= st.selectbox("Priority", ["Low","Medium","High"])
+
+    submitted= st.form_submit_button("Add task")
+
+    if submitted and new_todo:
+        todo_item = {
+            "task": new_todo,
+            "priority" : priority,
+            "completed" : False,
+            "created_at" : datetime.now().strftime("%d-%m-%Y %H:%M"),
+            "completed_at" : None 
+
+        }
+
+        st.session_state.todos.append(todo_item)
+        save_todos()
+        st.success("Task addedd successfully")
+        st.rerun()
+
+### Display TODOS
+if st.session_state.todos:
+    st.subheader("Your tasks")
+
+    ## Priority Colours
+    priority_colours = {
+    "High": "#ff4b4b",
+    "Medium": "#ffa64b",
+    "Low": "#4bff4b"
+    }
+
+for i, todo in enumerate(st.session_state.todos):
+        col1, col2, col3 = st.columns([6, 2, 2])
+        
+        with col1:
+            # Display task with strike-through if completed
+            task_text = todo["task"]
+            if todo["completed"]:
+                task_text = f"~~{task_text}~~ ✅"
+            
+            # Display priority badge
+            priority_color = priority_colours.get(todo["priority"], "#666666")
+            st.markdown(
+                f"<span style='background-color:{priority_color}; color:white; "
+                f"padding:2px 8px; border-radius:12px; font-size:0.8em; margin-right:8px;'>"
+                f"{todo['priority']}</span>"
+                f"{task_text}",
+                unsafe_allow_html=True
+            )
+            
+            # Show creation/completion time
+            if todo["completed"] and todo["completed_at"]:
+                st.caption(f"Completed: {todo['completed_at']}")
+            else:
+                st.caption(f"Created: {todo['created_at']}")
+        
+        with col2:
+            # Complete/Incomplete button
+            if not todo["completed"]:
+                if st.button("✅ Complete", key=f"complete_{i}"):
+                    st.session_state.todos[i]["completed"] = True
+                    st.session_state.todos[i]["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    save_todos()
+                    st.rerun()
+            else:
+                if st.button("↩️ Incomplete", key=f"incomplete_{i}"):
+                    st.session_state.todos[i]["completed"] = False
+                    st.session_state.todos[i]["completed_at"] = None
+                    save_todos()
+                    st.rerun()
+        
+        with col3:
+            # Delete button
+            if st.button("🗑️ Delete", key=f"delete_{i}"):
+                st.session_state.todos.pop(i)
+                save_todos()
+                st.rerun()
+        
+        st.divider()
+
+else:
+    st.info("No tasks yet! Add a task above to get started. 🚀")
